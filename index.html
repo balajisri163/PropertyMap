@@ -3,33 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Property Map - Geoapify Routing</title>
+<title>Property Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
-body { margin:0; font-family:Arial; }
-header { background:#1f4e79; color:white; padding:15px; text-align:center; }
-
-.controls {
-    padding:10px;
-    background:#f4f4f4;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
 }
 
-select, input { padding:8px; }
+header{
+    background:#1f4e79;
+    color:white;
+    text-align:center;
+    padding:15px;
+}
 
-#map { height:75vh; }
+#map{
+    height:75vh;
+}
 
-.card {
+#propertyList{
+    padding:10px;
+}
+
+.card{
     border:1px solid #ddd;
     padding:10px;
-    margin:10px;
+    margin-bottom:10px;
     border-radius:8px;
 }
-.leaflet-tooltip {
+
+.leaflet-tooltip{
     background:white;
     border:1px solid #1f4e79;
     color:#1f4e79;
@@ -41,18 +47,9 @@ select, input { padding:8px; }
 <body>
 
 <header>
-<h2>Chennai Property Map (Real Driving Time)</h2>
+<h2>Chennai Property Map</h2>
+<p>Plots & Houses with Driving Distance</p>
 </header>
-
-<div class="controls">
-<select id="areaFilter"><option value="">All Areas</option></select>
-<select id="typeFilter">
-<option value="">All Types</option>
-<option value="Plots">Plots</option>
-<option value="House">House</option>
-</select>
-<input id="maxPrice" type="number" placeholder="Max Price">
-</div>
 
 <div id="map"></div>
 <div id="propertyList"></div>
@@ -61,20 +58,30 @@ select, input { padding:8px; }
 
 <script>
 
+/* ---------------- API KEY ---------------- */
 const GEOAPIFY_KEY = "298a1d11a3f64bc5a03af5e1391313ba";
 
 /* ---------------- LANDMARKS ---------------- */
 const landmarks = [
 { name:"Airport", lat:12.9815647, lng:80.1639895 },
-{ name:"Tambaram", lat:12.9233953, lng:80.1205981 },
+{ name:"Tambaram Railway Station", lat:12.9233953, lng:80.1205981 },
 { name:"Medavakkam", lat:12.9190879, lng:80.1891200 }
 ];
 
-/* ---------------- PROPERTIES ---------------- */
+/* ---------------- ALL PROPERTIES ---------------- */
 const properties = [
 {area:"Mudichur",type:"House",sqft:1200,totalPrice:8300000,lat:12.91789,lng:80.07360,remarks:""},
 {area:"Nedungundram",type:"Plots",sqft:1000,totalPrice:6300000,lat:12.88483,lng:80.12165,remarks:"JJS Garden"},
-{area:"Rathnamangalam",type:"Plots",sqft:1000,totalPrice:5200000,lat:12.88460,lng:80.12793,remarks:""}
+{area:"Nedungundram",type:"Plots",sqft:1600,totalPrice:7200000,lat:12.87899,lng:80.11343,remarks:""},
+{area:"Rathnamangalam",type:"Plots",sqft:1000,totalPrice:5200000,lat:12.88460,lng:80.12793,remarks:"Rathna Gardens"},
+{area:"Rathnamangalam",type:"Plots",sqft:1000,totalPrice:5000000,lat:12.86760,lng:80.13675,remarks:"Akash Gardens"},
+{area:"Rathnamangalam",type:"Plots",sqft:840,totalPrice:4032000,lat:12.86790,lng:80.13297,remarks:""},
+{area:"Rathnamangalam",type:"Plots",sqft:1200,totalPrice:6000000,lat:12.86960,lng:80.13451,remarks:""},
+{area:"Rathnamangalam",type:"Plots",sqft:1280,totalPrice:4480000,lat:12.86822,lng:80.14149,remarks:""},
+{area:"Mappedu",type:"Plots",sqft:1340,totalPrice:8040000,lat:12.88701,lng:80.14144,remarks:"Ramathilagar Street"},
+{area:"Mappedu",type:"Plots",sqft:900,totalPrice:5850000,lat:12.88694,lng:80.14137,remarks:"Chellamal Avenue"},
+{area:"Madampakkam",type:"Plots",sqft:1000,totalPrice:6000000,lat:12.90558,lng:80.16031,remarks:"Elite Real Estate"},
+{area:"Ponmar",type:"Plots",sqft:1000,totalPrice:4500000,lat:12.83997,lng:80.16340,remarks:"Sri Brahma Sakthi Nagar"}
 ];
 
 /* ---------------- MAP ---------------- */
@@ -86,7 +93,10 @@ const satellite = L.tileLayer(
 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 );
 
-L.control.layers({"Street":street,"Satellite":satellite}).addTo(map);
+L.control.layers({
+"Street":street,
+"Satellite":satellite
+}).addTo(map);
 
 /* ---------------- ICONS ---------------- */
 const landmarkIcon = new L.Icon({
@@ -99,11 +109,10 @@ iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/
 iconSize:[25,41],iconAnchor:[12,41]
 });
 
-/* ---------------- DISTANCE (Geoapify Routing) ---------------- */
+/* ---------------- ROUTING ---------------- */
 async function getRoute(aLat,aLng,bLat,bLng){
 
-const url =
-`https://api.geoapify.com/v1/routing?waypoints=${aLat},${aLng}|${bLat},${bLng}&mode=drive&apiKey=${GEOAPIFY_KEY}`;
+const url = `https://api.geoapify.com/v1/routing?waypoints=${aLat},${aLng}|${bLat},${bLng}&mode=drive&apiKey=${GEOAPIFY_KEY}`;
 
 const res = await fetch(url);
 const data = await res.json();
@@ -127,8 +136,8 @@ const airport = landmarks[0];
 const tambaram = landmarks[1];
 const medavakkam = landmarks[2];
 
-/* ---------------- POPUP WITH ROUTE ---------------- */
-async function bindPopup(p, marker){
+/* ---------------- POPUP ---------------- */
+async function bindPopup(p,marker){
 
 const a = await getRoute(p.lat,p.lng,airport.lat,airport.lng);
 const t = await getRoute(p.lat,p.lng,tambaram.lat,tambaram.lng);
@@ -138,9 +147,10 @@ marker.bindPopup(`
 <b>${p.area}</b><br>
 Type: ${p.type}<br>
 Sq.ft: ${p.sqft}<br>
-Price: ₹${p.totalPrice.toLocaleString()}<br><br>
+Total: ₹${p.totalPrice.toLocaleString()}<br>
+Remarks: ${p.remarks || '-'}<br><br>
 
-🚗 Driving Info:<br>
+🚗 Driving Distance:<br>
 ✈️ Airport: ${a.distanceKm} km | ${a.timeMin} min<br>
 🚉 Tambaram: ${t.distanceKm} km | ${t.timeMin} min<br>
 📍 Medavakkam: ${m.distanceKm} km | ${m.timeMin} min<br><br>
@@ -151,10 +161,13 @@ Navigate
 `);
 }
 
-/* ---------------- RENDER ---------------- */
+/* ---------------- RENDER ALL ---------------- */
 function render(){
 
-document.getElementById("propertyList").innerHTML="";
+propertyMarkers = [];
+
+let html="";
+
 properties.forEach(p=>{
 
 const marker = L.marker([p.lat,p.lng],{icon:propertyIcon}).addTo(map);
@@ -163,11 +176,22 @@ marker.bindTooltip(p.area,{permanent:true,direction:"right"});
 
 bindPopup(p,marker);
 
+html+=`
+<div class="card">
+<h3>${p.area}</h3>
+<b>${p.type}</b><br>
+Sq.ft: ${p.sqft}<br>
+Total: ₹${p.totalPrice.toLocaleString()}<br>
+<a target="_blank" href="https://www.google.com/maps?q=${p.lat},${p.lng}">
+Open in Maps
+</a>
+</div>
+`;
 });
 
+document.getElementById("propertyList").innerHTML=html;
 }
 
-/* ---------------- INIT ---------------- */
 render();
 
 </script>
