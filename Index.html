@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Map - Geoapify Routing</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body { margin:0; font-family:Arial; }
+header { background:#1f4e79; color:white; padding:15px; text-align:center; }
+
+.controls {
+    padding:10px;
+    background:#f4f4f4;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+select, input { padding:8px; }
+
+#map { height:75vh; }
+
+.card {
+    border:1px solid #ddd;
+    padding:10px;
+    margin:10px;
+    border-radius:8px;
+}
+.leaflet-tooltip {
+    background:white;
+    border:1px solid #1f4e79;
+    color:#1f4e79;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Chennai Property Map (Real Driving Time)</h2>
+</header>
+
+<div class="controls">
+<select id="areaFilter"><option value="">All Areas</option></select>
+<select id="typeFilter">
+<option value="">All Types</option>
+<option value="Plots">Plots</option>
+<option value="House">House</option>
+</select>
+<input id="maxPrice" type="number" placeholder="Max Price">
+</div>
+
+<div id="map"></div>
+<div id="propertyList"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+const GEOAPIFY_KEY = "298a1d11a3f64bc5a03af5e1391313ba";
+
+/* ---------------- LANDMARKS ---------------- */
+const landmarks = [
+{ name:"Airport", lat:12.9815647, lng:80.1639895 },
+{ name:"Tambaram", lat:12.9233953, lng:80.1205981 },
+{ name:"Medavakkam", lat:12.9190879, lng:80.1891200 }
+];
+
+/* ---------------- PROPERTIES ---------------- */
+const properties = [
+{area:"Mudichur",type:"House",sqft:1200,totalPrice:8300000,lat:12.91789,lng:80.07360,remarks:""},
+{area:"Nedungundram",type:"Plots",sqft:1000,totalPrice:6300000,lat:12.88483,lng:80.12165,remarks:"JJS Garden"},
+{area:"Rathnamangalam",type:"Plots",sqft:1000,totalPrice:5200000,lat:12.88460,lng:80.12793,remarks:""}
+];
+
+/* ---------------- MAP ---------------- */
+const map = L.map('map').setView([12.90,80.14],11);
+
+const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+const satellite = L.tileLayer(
+'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+);
+
+L.control.layers({"Street":street,"Satellite":satellite}).addTo(map);
+
+/* ---------------- ICONS ---------------- */
+const landmarkIcon = new L.Icon({
+iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+iconSize:[25,41],iconAnchor:[12,41]
+});
+
+const propertyIcon = new L.Icon({
+iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+iconSize:[25,41],iconAnchor:[12,41]
+});
+
+/* ---------------- DISTANCE (Geoapify Routing) ---------------- */
+async function getRoute(aLat,aLng,bLat,bLng){
+
+const url =
+`https://api.geoapify.com/v1/routing?waypoints=${aLat},${aLng}|${bLat},${bLng}&mode=drive&apiKey=${GEOAPIFY_KEY}`;
+
+const res = await fetch(url);
+const data = await res.json();
+
+const leg = data.features[0].properties.legs[0];
+
+return {
+distanceKm:(leg.distance/1000).toFixed(2),
+timeMin:(leg.time/60).toFixed(0)
+};
+}
+
+/* ---------------- LANDMARKS ---------------- */
+landmarks.forEach(l=>{
+L.marker([l.lat,l.lng],{icon:landmarkIcon})
+.addTo(map)
+.bindTooltip(l.name,{permanent:true,direction:"top"});
+});
+
+const airport = landmarks[0];
+const tambaram = landmarks[1];
+const medavakkam = landmarks[2];
+
+/* ---------------- POPUP WITH ROUTE ---------------- */
+async function bindPopup(p, marker){
+
+const a = await getRoute(p.lat,p.lng,airport.lat,airport.lng);
+const t = await getRoute(p.lat,p.lng,tambaram.lat,tambaram.lng);
+const m = await getRoute(p.lat,p.lng,medavakkam.lat,medavakkam.lng);
+
+marker.bindPopup(`
+<b>${p.area}</b><br>
+Type: ${p.type}<br>
+Sq.ft: ${p.sqft}<br>
+Price: ₹${p.totalPrice.toLocaleString()}<br><br>
+
+🚗 Driving Info:<br>
+✈️ Airport: ${a.distanceKm} km | ${a.timeMin} min<br>
+🚉 Tambaram: ${t.distanceKm} km | ${t.timeMin} min<br>
+📍 Medavakkam: ${m.distanceKm} km | ${m.timeMin} min<br><br>
+
+<a target="_blank" href="https://www.google.com/maps?q=${p.lat},${p.lng}">
+Navigate
+</a>
+`);
+}
+
+/* ---------------- RENDER ---------------- */
+function render(){
+
+document.getElementById("propertyList").innerHTML="";
+properties.forEach(p=>{
+
+const marker = L.marker([p.lat,p.lng],{icon:propertyIcon}).addTo(map);
+
+marker.bindTooltip(p.area,{permanent:true,direction:"right"});
+
+bindPopup(p,marker);
+
+});
+
+}
+
+/* ---------------- INIT ---------------- */
+render();
+
+</script>
+
+</body>
+</html>
